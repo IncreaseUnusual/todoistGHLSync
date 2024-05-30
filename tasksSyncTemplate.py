@@ -4,9 +4,11 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 
 # API endpoint and authorization token
-api_url = 'https://services.leadconnectorhq.com/contacts/zPqMSSASipiyvsm4WNRp/tasks'
+api_url = f'https://services.leadconnectorhq.com/contacts/{contact_id}/tasks'
 
 webhook_url = ""
+
+contact_id = ""
 
 token = '''YOUR BEARER TOKEN HERE'''
 
