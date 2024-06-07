@@ -4,19 +4,23 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 
 # API endpoint and authorization token
-api_url = f'https://services.leadconnectorhq.com/contacts/{contact_id}/tasks'
 
-webhook_url = ""
+location_id = 'YOUR LOCATION ID'
 
-contact_id = ""
+api_url = f'https://services.leadconnectorhq.com/locations/{location_id}/tasks/search'
 
-token = '''YOUR BEARER TOKEN HERE'''
+webhook_url = "YOUR WEBHOOK URL HERE"
 
-todoist_token = '''TODOIST TOKEN'''
+token = ""
+
+todoist_token = 'YOUR TODOIST TOKEN'
 
 todoist_url = 'https://api.todoist.com/rest/v2/tasks'
 
 csv_file_path = 'tasks.csv'
+
+assigned_to =  ["CONTACT ID"]
+
 
 def load_existing_tasks_from_csv():
     existing_tasks = {}
@@ -53,10 +57,10 @@ def add_tasks_to_todoist(tasks):
         task_data = {
             'content': task.get('title', ''),
             'description': task.get('body', '') + f"\n id: {task.get('id', '')}",
-            'project_id': '2284939347',
+            'project_id': 'PROJECT ID HERE',
             'due_date': date,
-            #ADD Project ID
-            'labels': ['PROJECT ID']
+            #INSERT LABEL AND Project Id
+            'labels': ['YOUR LABEL HERE']
         }
         response = requests.post(todoist_url, headers=headers, json=task_data)
         if response.status_code == 200:
@@ -64,19 +68,26 @@ def add_tasks_to_todoist(tasks):
         else:
             print(f"Error adding task '{task_data['content']}': {response.status_code}, {response.text}")
 
-def fetch_data_from_webhook():
+def fetch_data_from_webhook(url, timeout=10):
     """
     Fetch data from the webhook URL.
 
+    Returns:
+    - str: The fetched token as a string.
     """
-    response = requests.get(webhook_url)
-    if response.status_code == 200:
-
-        data = response.json()
-        return [data]  # Assuming the response is a single task, wrap it in a list
-    else:
-        print(f"Error fetching data from webhook: {response.status_code}, {response.text}")
-        return []
+    try:
+        webhook_response = requests.get(webhook_url, timeout=timeout)
+        webhook_response.raise_for_status()  # Raise an HTTPError if the response was an error
+        # Extract token from the response (assuming the token is in the response body)
+        data = webhook_response.text.split("Bearer")[1].strip()
+        return data
+    except requests.exceptions.Timeout:
+        print(f"Error: Request timed out after {timeout} seconds")
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data from webhook: {e}")
+    except IndexError as ie:
+        print(f"Error parsing token from response: {ie}")
+    return ""
 
 # Function to fetch tasks from the API and filter out completed tasks
 def fetch_and_filter_tasks():
@@ -95,14 +106,19 @@ def fetch_and_filter_tasks():
     else:
         print(f"Error: {response.status_code}, {response.text}")
         return []
+    
 
 def main():
-    #token = fetch_data_from_webhook()
+    global token
+    token = fetch_data_from_webhook(webhook_url)
     existing_tasks = load_existing_tasks_from_csv()
 
     incomplete_tasks = fetch_and_filter_tasks()
 
-    new_tasks = [task for task in incomplete_tasks if task['id'] not in existing_tasks]
+    # Filter tasks to match the assigned_to value
+    filtered_tasks = [task for task in incomplete_tasks if task.get('assignedTo') == assigned_to]
+
+    new_tasks = [task for task in filtered_tasks if task['id'] not in existing_tasks]
 
     if new_tasks:
         add_tasks_to_todoist(new_tasks)
